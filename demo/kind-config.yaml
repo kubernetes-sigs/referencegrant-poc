@@ -1,0 +1,26 @@
+# Kind cluster config for regular authz (non structured authz)
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+kubeadmConfigPatches:
+  - |
+    kind: ClusterConfiguration
+    metadata:
+      name: config
+    apiServer:
+      extraArgs:
+        authorization-mode: "RBAC,Webhook"
+        authorization-webhook-version: "v1"
+        authorization-webhook-config-file: "/files/authorize-webhook-conf.yaml"
+        authorization-webhook-cache-authorized-ttl: "120s"
+        authorization-webhook-cache-unauthorized-ttl: "30s"
+      extraVolumes:
+      - name: api-server-basic-auth-files
+        hostPath: "/files"
+        mountPath: "/files"
+        readOnly: true
+nodes:
+- role: control-plane
+  # Make sure you set the correct hostPath
+  extraMounts:
+  - hostPath: demo/files
+    containerPath: /files

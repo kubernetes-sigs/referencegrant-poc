@@ -25,7 +25,7 @@ import (
 )
 
 func main() {
-	authStore := store.NewStore()
+	authStore := store.NewAuthStore()
 
 	ctrl := controller.NewController(authStore)
 

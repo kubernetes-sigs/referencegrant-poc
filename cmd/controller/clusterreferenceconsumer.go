@@ -18,9 +18,11 @@ package controller
 
 import (
 	"context"
+	"fmt"
 
 	v1a1 "sigs.k8s.io/referencegrant-poc/apis/v1alpha1"
 
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -54,6 +56,13 @@ func (h *ClusterReferenceConsumerHandler) Generic(ctx context.Context, e event.G
 
 func queuePatternsForCRC(obj client.Object, q workqueue.RateLimitingInterface) {
 	crc := obj.(*v1a1.ClusterReferenceConsumer)
-	nn := generateQueueKey(crc.From.Group, crc.From.Resource, crc.To.Group, crc.To.Resource, string(crc.For))
-	q.AddRateLimited(reconcile.Request{nn})
+	name := fmt.Sprintf("ClusterReferenceConsumer/%s", crc.Name)
+
+	// Queue strings of "from;to;for"
+	for _, ref := range crc.References {
+		origin := fmt.Sprintf("%s/%s", ref.From.Group, ref.From.Resource)
+		target := fmt.Sprintf("%s/%s", ref.To.Group, ref.To.Resource)
+		key := fmt.Sprintf("%s;%s;%s", origin, target, ref.For)
+		q.AddRateLimited(reconcile.Request{NamespacedName: types.NamespacedName{Name: name, Namespace: key}})
+	}
 }

@@ -8,8 +8,10 @@ kubeadmConfigPatches:
     metadata:
       name: config
     apiServer:
-      extraArgs:
-        authorization-config: "/files/authorization_config.yaml" 
+      # extraArgs:
+      #   # bug fixed in 1.30.0 kubeadm release
+      #   # https://github.com/kubernetes/kubernetes/issues/123651
+      #   authorization-config: "/files/authorization_config.yaml" 
       extraVolumes:
       - name: api-server-basic-auth-files
         hostPath: "/files"
@@ -17,6 +19,7 @@ kubeadmConfigPatches:
         readOnly: true
 nodes:
 - role: control-plane
+  image: kindest/node:v1.29.2@sha256:51a1434a5397193442f0be2a297b488b6c919ce8a3931be0ce822606ea5ca245
   # Make sure you set the correct hostPath
   extraMounts:
   - hostPath: demo/files

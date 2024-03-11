@@ -20,8 +20,8 @@ import (
 	"net/http"
 
 	"sigs.k8s.io/referencegrant-poc/cmd/controller"
-	"sigs.k8s.io/referencegrant-poc/cmd/store"
 	"sigs.k8s.io/referencegrant-poc/pkg/handlers"
+	"sigs.k8s.io/referencegrant-poc/pkg/store"
 )
 
 func main() {

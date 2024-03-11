@@ -37,27 +37,28 @@ func NewClusterReferenceGrantHandler(c *Controller) *ClusterReferenceGrantHandle
 }
 
 func (h *ClusterReferenceGrantHandler) Create(ctx context.Context, e event.CreateEvent, q workqueue.RateLimitingInterface) {
-	queueCRP(e.Object, q)
+	h.queueCRP(e.Object, q)
 }
 
 func (h *ClusterReferenceGrantHandler) Update(ctx context.Context, e event.UpdateEvent, q workqueue.RateLimitingInterface) {
-	queueCRP(e.ObjectNew, q)
+	h.queueCRP(e.ObjectNew, q)
 }
 
 func (h *ClusterReferenceGrantHandler) Delete(ctx context.Context, e event.DeleteEvent, q workqueue.RateLimitingInterface) {
-	queueCRP(e.Object, q)
+	h.queueCRP(e.Object, q)
 }
 
 func (h *ClusterReferenceGrantHandler) Generic(ctx context.Context, e event.GenericEvent, q workqueue.RateLimitingInterface) {
-	queueCRP(e.Object, q)
+	h.queueCRP(e.Object, q)
 }
 
-func queueCRP(obj client.Object, q workqueue.RateLimitingInterface) {
+func (h *ClusterReferenceGrantHandler) queueCRP(obj client.Object, q workqueue.RateLimitingInterface) {
 	crg := obj.(*v1a1.ClusterReferenceGrant)
 	name := fmt.Sprintf("ClusterReferenceGrant/%s", crg.Name)
 
 	origin := fmt.Sprintf("%s/%s", crg.From.Group, crg.From.Resource)
 	if len(crg.Versions) == 0 {
+		h.c.log.Info("Skipping clusterReferenceGrant with no versions", "name", crg.Name)
 		return
 	}
 	// We ignore multiple versions for now

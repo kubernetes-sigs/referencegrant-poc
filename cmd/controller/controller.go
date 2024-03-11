@@ -25,7 +25,6 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -52,12 +51,12 @@ type Controller struct {
 	store    *store.AuthStore
 }
 
-// TODO() the store is just passed, we need to actually implement doing something with it and handle locks accordingly
-func NewController(store *store.AuthStore) *Controller {
+func NewController(authStore *store.AuthStore) *Controller {
 	lConfig := textlogger.NewConfig()
 
 	c := &Controller{
-		log: textlogger.NewLogger(lConfig),
+		log:   textlogger.NewLogger(lConfig),
+		store: authStore,
 	}
 	ctrl.SetLogger(klogr.New())
 
@@ -119,6 +118,7 @@ func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 	for _, crc := range crcList.Items {
 		for _, ref := range crc.References {
+			// qKey := NewQueueKey(ref.From.Group, ref.From.Resource, ref.To.Group, ref.To.Resource, ref.For)
 			origin := fmt.Sprintf("%s/%s", ref.From.Group, ref.From.Resource)
 			target := fmt.Sprintf("%s/%s", ref.To.Group, ref.To.Resource)
 			key := fmt.Sprintf("%s;%s;%s", origin, target, ref.For)
@@ -146,6 +146,7 @@ func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 			continue
 		}
 		if len(crg.Versions) == 0 {
+			c.log.Info("Skipping clusterReferenceGrant with no versions", "name", crg.Name)
 			continue
 		}
 		fromVersion = crg.Versions[0].Version
@@ -276,21 +277,26 @@ func (c *Controller) getReferences(list *unstructured.UnstructuredList, path str
 			if err != nil {
 				c.log.Error(err, "error finding results with JSON Path")
 			}
-			group, hasGroup := jr["group"]
-			if !hasGroup {
-				c.log.Info("Missing group in reference", "ref", jr)
-				continue
-			}
-			resource, hasResource := jr["resource"]
-			if !hasResource {
-				kind, hasKind := jr["kind"]
-				if !hasKind {
-					c.log.Info("Missing kind or resource in reference", "ref", jr)
-					continue
-				}
-				gvr, _ := meta.UnsafeGuessKindToResource(schema.GroupVersionKind{Group: group, Version: "v1", Kind: kind})
-				resource = gvr.Resource
-			}
+			// The part below is commented in favour of the decision to
+			// requiring the ClusterRefGrant to specify the group and resource and
+			// limit the json path to only pull names that match that group and resource or kind.
+			// This is not feasible using the current jsonPath implementation so we are likely to use CEL for this.
+
+			// group, hasGroup := jr["group"]
+			// if !hasGroup {
+			// 	c.log.Info("Missing group in reference", "ref", jr)
+			// 	continue
+			// }
+			// resource, hasResource := jr["resource"]
+			// if !hasResource {
+			// 	kind, hasKind := jr["kind"]
+			// 	if !hasKind {
+			// 		c.log.Info("Missing kind or resource in reference", "ref", jr)
+			// 		continue
+			// 	}
+			// 	gvr, _ := meta.UnsafeGuessKindToResource(schema.GroupVersionKind{Group: group, Version: "v1", Kind: kind})
+			// 	resource = gvr.Resource
+			// }
 
 			namespace, hasNamespace := jr["namespace"]
 			if !hasNamespace {
@@ -302,10 +308,7 @@ func (c *Controller) getReferences(list *unstructured.UnstructuredList, path str
 				c.log.Info("Missing name in reference", "ref", jr)
 				continue
 			}
-			// TODO: check if the referenced resource exist ?
 			refs = append(refs, reference{
-				Group:         group,
-				Resource:      resource,
 				FromNamespace: item.GetNamespace(),
 				ToNamespace:   namespace,
 				Name:          name,

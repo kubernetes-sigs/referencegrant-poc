@@ -56,6 +56,14 @@ type AuthStore struct {
 	mutex        sync.RWMutex
 }
 
+func (s *AuthStore) GetGraph() GrantGraph {
+	return s.graph
+}
+
+func (s *AuthStore) GetSubjectIndex() map[v1a1.Subject]map[TargetResourceGroup]map[types.NamespacedName]Purpose {
+	return s.subjectIndex
+}
+
 func NewAuthStore() *AuthStore {
 	return &AuthStore{
 		graph:        make(GrantGraph),

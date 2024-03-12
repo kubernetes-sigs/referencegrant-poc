@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"fmt"
 	"net/http"
 
 	"sigs.k8s.io/referencegrant-poc/cmd/controller"
@@ -27,11 +28,18 @@ import (
 func main() {
 	authStore := store.NewAuthStore()
 
-	ctrl := controller.NewController(authStore)
+	http.HandleFunc("/authorize", handlers.AuthzHandler(authStore))
+	go func() {
+		fmt.Println("Starting server on port 8080...")
+		if err := http.ListenAndServe(":8081", nil); err != nil {
+			fmt.Printf("Failed to start server: %v\n", err)
+		}
+	}()
+
+	controller.NewController(authStore)
 
 	// ctx, cancel := context.WithCancel(context.Background())
 	// defer cancel()
 	// go ctrl.Start(ctx)
 
-	http.HandleFunc("/authorize", handlers.AuthzHandler(authStore))
 }

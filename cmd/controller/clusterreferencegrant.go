@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -29,11 +30,15 @@ import (
 )
 
 type ClusterReferenceGrantHandler struct {
-	c *Controller
+	c      *Controller
+	logger logr.Logger
 }
 
 func NewClusterReferenceGrantHandler(c *Controller) *ClusterReferenceGrantHandler {
-	return &ClusterReferenceGrantHandler{c: c}
+	return &ClusterReferenceGrantHandler{
+		c:      c,
+		logger: c.log.WithName("eventHandlers").WithName("clusterreferencegrant"),
+	}
 }
 
 func (h *ClusterReferenceGrantHandler) Create(ctx context.Context, e event.CreateEvent, q workqueue.RateLimitingInterface) {
@@ -58,7 +63,7 @@ func (h *ClusterReferenceGrantHandler) queueCRP(obj client.Object, q workqueue.R
 
 	origin := fmt.Sprintf("%s/%s", crg.From.Group, crg.From.Resource)
 	if len(crg.Versions) == 0 {
-		h.c.log.Info("Skipping clusterReferenceGrant with no versions", "name", crg.Name)
+		h.logger.Info("Skipping clusterReferenceGrant with no versions", "name", crg.Name)
 		return
 	}
 	// We ignore multiple versions for now

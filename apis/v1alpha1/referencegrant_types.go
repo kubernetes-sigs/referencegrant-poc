@@ -58,7 +58,7 @@ type ReferenceGrantList struct {
 // references.
 type ReferenceGrantTo struct {
 	// Group is the group of the referents.
-	Group string `json:"group"`
+	Group string `json:"group,omitempty"`
 
 	// Resource is the resource of the referents.
 	Resource string `json:"resource"`

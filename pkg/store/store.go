@@ -18,6 +18,7 @@ package store
 
 import (
 	"fmt"
+	"log"
 	"strings"
 	"sync"
 
@@ -68,6 +69,7 @@ func NewAuthStore() *AuthStore {
 	return &AuthStore{
 		graph:        make(GrantGraph),
 		subjectIndex: make(map[v1a1.Subject]map[TargetResourceGroup]map[types.NamespacedName]Purpose),
+		mutex:        sync.RWMutex{},
 	}
 }
 
@@ -75,27 +77,27 @@ func (s *AuthStore) CheckAuthz(sar authorizationv1.SubjectAccessReview) (bool, e
 	user := sar.Spec.User
 	groups := sar.Spec.Groups
 	trg := TargetResourceGroup(fmt.Sprintf("%s/%s", sar.Spec.ResourceAttributes.Group, sar.Spec.ResourceAttributes.Resource))
-	// trg := schema.GroupResource{
-	// 	Group: sar.Spec.ResourceAttributes.Group,
-	// 	Resource: sar.Spec.ResourceAttributes.Resource,
-	// }
 
-	// nn := TargetNamespacedName(fmt.Sprintf("%s/%s", sar.GetNamespace(), sar.GetName()))
 	nn := types.NamespacedName{
-		Name:      sar.GetName(),
-		Namespace: sar.GetNamespace(),
+		Name:      sar.Spec.ResourceAttributes.Name,
+		Namespace: sar.Spec.ResourceAttributes.Namespace,
 	}
-	p := Purpose(strings.Join(sar.Spec.Extra[ExtraPurposeKey], ", "))
+
+	// Not necessary for the demo.
+	// var p Purpose
+	// if _, ok := sar.Spec.Extra[ExtraPurposeKey]; ok {
+	// 	p = Purpose(strings.Join(sar.Spec.Extra[ExtraPurposeKey], ", "))
+	// }
 
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	for _, g := range groups {
-		allowed := s.lookup(v1a1.Subject{Kind: "Group", Name: g}, trg, nn, p)
+		allowed := s.lookup(v1a1.Subject{Kind: "Group", Name: g}, trg, nn)
 		if allowed {
 			return true, nil
 		}
 	}
-	allowed := s.lookup(v1a1.Subject{Kind: "User", Name: user}, trg, nn, p)
+	allowed := s.lookup(v1a1.Subject{Kind: "User", Name: user}, trg, nn)
 	return allowed, nil
 }
 
@@ -110,7 +112,12 @@ func (s *AuthStore) CheckAuthz(sar authorizationv1.SubjectAccessReview) (bool, e
 //  3. Next, it looks for the namespacedName within the target resource group's map.
 //     if not found, it returns false.
 //     If found, it checks if the found Purpose is the requested purpose and return true or false accordingly.
-func (s *AuthStore) lookup(subj v1a1.Subject, trg TargetResourceGroup, nn types.NamespacedName, p Purpose) bool {
+func (s *AuthStore) lookup(subj v1a1.Subject, trg TargetResourceGroup, nn types.NamespacedName) bool {
+	if nn.Name == "tls-validity-checks-certificate" {
+		// log.Printf("Attempting to lookup graph for with subj=%v, trg=%v, nn=%v, purpose=%v", subj, trg, nn, p)
+		log.Printf("Attempting to lookup graph for with subj=%v, trg=%v, nn=%v", subj, trg, nn)
+		log.Printf("SubjectIndex is: %v", s.GetSubjectIndex())
+	}
 	trgMap, ok := s.subjectIndex[subj]
 	if !ok {
 		return false
@@ -119,11 +126,9 @@ func (s *AuthStore) lookup(subj v1a1.Subject, trg TargetResourceGroup, nn types.
 	if !ok {
 		return false
 	}
-	foundPurpose, ok := tnnMap[nn]
-	if !ok {
-		return false
-	}
-	return foundPurpose == p
+	// We dont care what is the purpose it is authorized as we currently have no way to get the "Purpose" or "For" from the client
+	_, ok = tnnMap[nn]
+	return ok
 
 }
 

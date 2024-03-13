@@ -16,8 +16,6 @@ limitations under the License.
 
 package v1alpha1
 
-import "fmt"
-
 type GroupResource struct {
 	Group    string `json:"group"`
 	Resource string `json:"resource"`
@@ -30,27 +28,3 @@ type GroupResourceNamespace struct {
 }
 
 type For string
-
-type QueueKey struct {
-	OriginGroup    string
-	OriginResource string
-	TargetGroup    string
-	TargetResource string
-	Purpose        string
-}
-
-func (qk *QueueKey) ToString() string {
-	origin := fmt.Sprintf("%s/%s", qk.OriginGroup, qk.OriginResource)
-	target := fmt.Sprintf("%s/%s", qk.TargetGroup, qk.TargetResource)
-	return fmt.Sprintf("%s;%s;%s", origin, target, qk.Purpose)
-}
-
-func NewQueueKey(originGroup, originResource, targetGroup, targetResource, purpose string) *QueueKey {
-	return &QueueKey{
-		OriginGroup:    originGroup,
-		OriginResource: originResource,
-		TargetGroup:    targetGroup,
-		TargetResource: targetResource,
-		Purpose:        purpose,
-	}
-}

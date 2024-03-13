@@ -142,6 +142,13 @@ func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
+	rgList := &v1a1.ReferenceGrantList{}
+	err = c.crClient.List(ctx, rgList)
+	if err != nil {
+		c.log.Error(err, "could not list ReferenceGrants")
+		return ctrl.Result{}, err
+	}
+
 	// Currently when we enter the reconcile with Gateway event, we only have the "From".
 	// Hence we recalculate all applicable keys in graph with "gateway.networking.k8s.io.gateway" as "From"
 	c.log.Info(fmt.Sprintf("req: %s", req.NamespacedName.Namespace))
@@ -163,9 +170,30 @@ func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 				target := fmt.Sprintf("%s/%s", ref.To.Group, ref.To.Resource)
 				key := fmt.Sprintf("%s;%s;%s", origin, target, ref.For)
 				if key == fromToForKey {
+					if crc.Subject.Kind == "ServiceAccount" {
+						crc.Subject.Kind = "User"
+						crc.Subject.Name = fmt.Sprintf("system:serviceaccount:%s:%s", crc.Subject.Namespace, crc.Subject.Name)
+						crc.Subject.Namespace = ""
+					}
 					crcSubjects = append(crcSubjects, crc.Subject)
 					break
 				}
+			}
+		}
+		// map between FromNamespace to a map of ToNamespace to []ResourceName for this particular fromToFor key
+		crossNamespaceGrants := map[string]map[string]sets.Set[string]{}
+		for _, rg := range rgList.Items {
+			origin := fmt.Sprintf("%s/%s", rg.From.Group, rg.From.Resource)
+			target := fmt.Sprintf("%s/%s", rg.To.Group, rg.To.Resource)
+			key := fmt.Sprintf("%s;%s;%s", origin, target, rg.For)
+			if key == fromToForKey {
+				if _, ok := crossNamespaceGrants[rg.From.Namespace]; !ok {
+					crossNamespaceGrants[rg.From.Namespace] = make(map[string]sets.Set[string])
+				}
+				if _, ok := crossNamespaceGrants[rg.From.Namespace][rg.Namespace]; !ok {
+					crossNamespaceGrants[rg.From.Namespace][rg.Namespace] = make(sets.Set[string])
+				}
+				crossNamespaceGrants[rg.From.Namespace][rg.Namespace].Insert(rg.To.Names...)
 			}
 		}
 
@@ -217,58 +245,27 @@ func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		// For the first POC, we want to recalculate the from-to-for key e2e. Clearing the key first
 		c.store.ClearGraphKey(fromToForKey)
 
+		finalRefResources := []reference{}
 		for _, refResource := range referencedResources {
+			if refResource.FromNamespace != refResource.ToNamespace {
+				if allowedToNamespaces, ok := crossNamespaceGrants[refResource.FromNamespace]; ok {
+					if allowedNamesForNamespace, exist := allowedToNamespaces[refResource.ToNamespace]; exist {
+						if allowedNamesForNamespace.Has(refResource.Name) {
+							finalRefResources = append(finalRefResources, refResource)
+						}
+					}
+				}
+			} else {
+				finalRefResources = append(finalRefResources, refResource)
+			}
+		}
+		for _, refResource := range finalRefResources {
 			c.store.UpsertGrant(fromToForKey, types.NamespacedName{Namespace: refResource.ToNamespace, Name: refResource.Name}, crcSubjects)
 		}
-		c.log.V(0).Info(fmt.Sprintf("Reconciliation finished, Graph is:\n%v", c.store.GetGraph()))
+		c.log.V(0).Info("Reconciliation finished", "GraphKey", fromToForKey)
+		c.log.V(0).Info(fmt.Sprintf("Graph is:\n%v\n", c.store.GetGraph()))
+		c.log.V(0).Info(fmt.Sprintf("SubjectIndex is: %v\n", c.store.GetSubjectIndex()))
 	}
-
-	// TODO: add referenceGrant logic
-
-	// rgs := []*v1a1.ReferenceGrant{}
-	// rgList := &v1a1.ReferenceGrantList{}
-	// err = c.crClient.List(ctx, rgList)
-	// if err != nil {
-	// 	c.log.Error(err, "could not list ReferenceGrants")
-	// 	return ctrl.Result{}, err
-	// }
-
-	// for _, rg := range rgList.Items {
-	// 	origin := fmt.Sprint("%s/%s", rg.From.Group, rg.From.Resource)
-	// 	target := fmt.Sprint("%s/%s", rg.To.Group, rg.To.Resource)
-	// 	key := fmt.Sprintf("%s;%s;%s", origin, target, rg.For)
-	// 	if key == req.Namespace {
-	// 		rgs = append(rgs, &rg)
-	// 	}
-	// }
-
-	// Build ClusterReferenceConsumer cache.
-	// maps "from;to;for" -> map[classPath] -> Subject
-	// clusterRefConsumers := map[string]map[string][]v1a1.Subject{}
-	// for _, crc := range crcList.Items {
-	// 	for _, ref := range crc.References {
-	// 		origin := fmt.Sprint("%s/%s", ref.From.Group, ref.From.Resource)
-	// 		target := fmt.Sprint("%s/%s", ref.To.Group, ref.To.Resource)
-	// 		key := fmt.Sprintf("%s;%s;%s", origin, target, ref.For)
-
-	// 		if _, ok := clusterRefConsumers[key]; !ok {
-	// 			clusterRefConsumers[key] = map[string][]v1a1.Subject{
-	// 				"": {},
-	// 			}
-	// 		}
-	// 		if len(crc.ClassNames) > 0 {
-	// 			c.log.Info("Opt in to ClusterReferenceConsumer ClassNames", "ClusterReferenceConsumer", crc.Name)
-	// 			for _, className := range crc.ClassNames {
-	// 				if _, ok := clusterRefConsumers[key][className]; !ok {
-	// 					clusterRefConsumers[key][className] = []v1a1.Subject{}
-	// 				}
-	// 				clusterRefConsumers[key][className] = append(clusterRefConsumers[key][className], crc.Subject)
-	// 			}
-	// 		} else {
-	// 			clusterRefConsumers[key][""] = append(clusterRefConsumers[key][""], crc.Subject)
-	// 		}
-	// 	}
-	// }
 
 	return ctrl.Result{}, nil
 }

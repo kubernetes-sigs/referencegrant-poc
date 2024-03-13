@@ -18,7 +18,9 @@ package controller
 
 import (
 	"context"
+	"fmt"
 
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -53,7 +55,9 @@ func (h *ReferenceGrantHandler) Generic(ctx context.Context, e event.GenericEven
 
 func queuePatternForRG(obj client.Object, q workqueue.RateLimitingInterface) {
 	rg := obj.(*v1a1.ReferenceGrant)
-
-	nn := generateQueueKey(rg.From.Group, rg.From.Resource, rg.To.Group, rg.To.Resource, string(rg.For))
-	q.AddRateLimited(reconcile.Request{nn})
+	name := fmt.Sprintf("ReferenceGrant/%s", rg.Name)
+	origin := fmt.Sprintf("%s/%s", rg.From.Group, rg.From.Resource)
+	target := fmt.Sprintf("%s/%s", rg.To.Group, rg.To.Resource)
+	key := fmt.Sprintf("%s;%s;%s", origin, target, rg.For)
+	q.AddRateLimited(reconcile.Request{NamespacedName: types.NamespacedName{Name: name, Namespace: key}})
 }

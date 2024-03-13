@@ -11,8 +11,8 @@ FROM alpine:latest
 
 WORKDIR /go/bin/
 # RUN mkdir config
-RUN mkdir -p /usr/.kube/
-ENV KUBECONFIG /usr/.kube/config
+RUN mkdir -p /demo
+ENV KUBECONFIG /demo/kubeconfig
 
 COPY --from=builder /go/src/github.com/kubernetes-sigs/referencegrant-poc/refauthz .
 

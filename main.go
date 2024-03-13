@@ -19,15 +19,35 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"os"
+	"time"
 
 	"sigs.k8s.io/referencegrant-poc/cmd/controller"
 	"sigs.k8s.io/referencegrant-poc/pkg/handlers"
 	"sigs.k8s.io/referencegrant-poc/pkg/store"
 )
 
+func waitForFile(filePath string) {
+	for {
+		_, err := os.Stat(filePath)
+		if err == nil {
+			fmt.Println("file exists")
+			break
+		} else if os.IsNotExist(err) {
+			// File doesn't exist yet, wait for a while before checking again
+			time.Sleep(3 * time.Second)
+		} else {
+			// Some other error occurred, print and exit
+			fmt.Println("Error:", err)
+			return
+		}
+	}
+}
+
 func main() {
 	authStore := store.NewAuthStore()
 
+	http.HandleFunc("/health", handlers.HandleHealthCheck)
 	http.HandleFunc("/authorize", handlers.AuthzHandler(authStore))
 	go func() {
 		fmt.Println("Starting server on port 8080...")
@@ -35,6 +55,8 @@ func main() {
 			fmt.Printf("Failed to start server: %v\n", err)
 		}
 	}()
+
+	waitForFile(os.Getenv("KUBECONFIG"))
 
 	controller.NewController(authStore)
 

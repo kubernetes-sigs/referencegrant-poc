@@ -50,7 +50,7 @@ func main() {
 	http.HandleFunc("/health", handlers.HandleHealthCheck)
 	http.HandleFunc("/authorize", handlers.AuthzHandler(authStore))
 	go func() {
-		fmt.Println("Starting server on port 8080...")
+		fmt.Println("Starting server on port 8081...")
 		if err := http.ListenAndServe(":8081", nil); err != nil {
 			fmt.Printf("Failed to start server: %v\n", err)
 		}

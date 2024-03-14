@@ -18,7 +18,6 @@ package store
 
 import (
 	"fmt"
-	"log"
 	"strings"
 	"sync"
 
@@ -75,7 +74,7 @@ func NewAuthStore() *AuthStore {
 
 func (s *AuthStore) CheckAuthz(sar authorizationv1.SubjectAccessReview) (bool, error) {
 	user := sar.Spec.User
-	groups := sar.Spec.Groups
+	// groups := sar.Spec.Groups
 	trg := TargetResourceGroup(fmt.Sprintf("%s/%s", sar.Spec.ResourceAttributes.Group, sar.Spec.ResourceAttributes.Resource))
 
 	nn := types.NamespacedName{
@@ -91,12 +90,12 @@ func (s *AuthStore) CheckAuthz(sar authorizationv1.SubjectAccessReview) (bool, e
 
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
-	for _, g := range groups {
-		allowed := s.lookup(v1a1.Subject{Kind: "Group", Name: g}, trg, nn)
-		if allowed {
-			return true, nil
-		}
-	}
+	// for _, g := range groups {
+	// 	allowed := s.lookup(v1a1.Subject{Kind: "Group", Name: g}, trg, nn)
+	// 	if allowed {
+	// 		return true, nil
+	// 	}
+	// }
 	allowed := s.lookup(v1a1.Subject{Kind: "User", Name: user}, trg, nn)
 	return allowed, nil
 }
@@ -109,15 +108,13 @@ func (s *AuthStore) CheckAuthz(sar authorizationv1.SubjectAccessReview) (bool, e
 //  2. It then looks for the target resource group (trg) within the subject's map in the graph.
 //     If not found, it returns false.
 //
-//  3. Next, it looks for the namespacedName within the target resource group's map.
-//     if not found, it returns false.
-//     If found, it checks if the found Purpose is the requested purpose and return true or false accordingly.
+//  3. Next, it looks for the namespacedName within the target resource group's map and return true or false accordingly.
 func (s *AuthStore) lookup(subj v1a1.Subject, trg TargetResourceGroup, nn types.NamespacedName) bool {
-	if nn.Name == "tls-validity-checks-certificate" {
-		// log.Printf("Attempting to lookup graph for with subj=%v, trg=%v, nn=%v, purpose=%v", subj, trg, nn, p)
-		log.Printf("Attempting to lookup graph for with subj=%v, trg=%v, nn=%v", subj, trg, nn)
-		log.Printf("SubjectIndex is: %v", s.GetSubjectIndex())
-	}
+	// if strings.HasPrefix(nn.Name, "demo") {
+	// 	// log.Printf("Attempting to lookup graph for with subj=%v, trg=%v, nn=%v, purpose=%v", subj, trg, nn, p)
+	// 	log.Printf("Attempting to lookup graph for with subj=%v, trg=%v, nn=%v", subj, trg, nn)
+	// 	log.Printf("SubjectIndex is: %v", s.GetSubjectIndex())
+	// }
 	trgMap, ok := s.subjectIndex[subj]
 	if !ok {
 		return false
@@ -126,7 +123,7 @@ func (s *AuthStore) lookup(subj v1a1.Subject, trg TargetResourceGroup, nn types.
 	if !ok {
 		return false
 	}
-	// We dont care what is the purpose it is authorized as we currently have no way to get the "Purpose" or "For" from the client
+	// We don't care what is the purpose it is authorized as we currently have no way to get the "Purpose" or "For" from the client
 	_, ok = tnnMap[nn]
 	return ok
 

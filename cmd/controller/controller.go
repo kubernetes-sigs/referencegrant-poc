@@ -171,6 +171,7 @@ func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 				key := fmt.Sprintf("%s;%s;%s", origin, target, ref.For)
 				if key == fromToForKey {
 					if crc.Subject.Kind == "ServiceAccount" {
+						// crc.Subject.Name = apiserverserviceaccount.MakeUsername(crc.Subject.Namespace, crc.Subject.Name)
 						crc.Subject.Kind = "User"
 						crc.Subject.Name = fmt.Sprintf("system:serviceaccount:%s:%s", crc.Subject.Namespace, crc.Subject.Name)
 						crc.Subject.Namespace = ""

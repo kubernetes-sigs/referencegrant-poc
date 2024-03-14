@@ -18,7 +18,10 @@ package main
 
 import (
 	"context"
+	"fmt"
 
+	"github.com/go-logr/logr"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -27,11 +30,15 @@ import (
 )
 
 type ClusterReferenceGrantHandler struct {
-	c *Controller
+	c      *Controller
+	logger logr.Logger
 }
 
 func NewClusterReferenceGrantHandler(c *Controller) *ClusterReferenceGrantHandler {
-	return &ClusterReferenceGrantHandler{c: c}
+	return &ClusterReferenceGrantHandler{
+		c:      c,
+		logger: c.log.WithName("eventHandlers").WithName("clusterreferencegrant"),
+	}
 }
 
 func (h *ClusterReferenceGrantHandler) Create(ctx context.Context, e event.CreateEvent, q workqueue.RateLimitingInterface) {
@@ -52,7 +59,18 @@ func (h *ClusterReferenceGrantHandler) Generic(ctx context.Context, e event.Gene
 
 func queueCRP(obj client.Object, q workqueue.RateLimitingInterface) {
 	crg := obj.(*v1a1.ClusterReferenceGrant)
+	name := fmt.Sprintf("ClusterReferenceGrant/%s", crg.Name)
 
-	nn := generateQueueKey(crg.From.Group, crg.From.Resource, crg.To.Group, crg.To.Resource, string(crg.For))
-	q.AddRateLimited(reconcile.Request{nn})
+	origin := fmt.Sprintf("%s/%s", crg.From.Group, crg.From.Resource)
+	if len(crg.Versions) == 0 {
+		// h.logger.Info("Skipping clusterReferenceGrant with no versions", "name", crg.Name)
+		return
+	}
+	// We ignore multiple versions for now
+	// TODO: handle multiple versions
+	for _, ref := range crg.Versions[0].References {
+		target := fmt.Sprintf("%s/%s", ref.To.Group, ref.To.Resource)
+		key := fmt.Sprintf("%s;%s;%s", origin, target, ref.For)
+		q.AddRateLimited(reconcile.Request{NamespacedName: types.NamespacedName{Name: name, Namespace: key}})
+	}
 }

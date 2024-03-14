@@ -63,7 +63,7 @@ func AuthzHandler(store *store.AuthStore) http.HandlerFunc {
 			return
 		}
 		var print bool
-		if strings.Contains(sar.Spec.User, "kong-controller") && sar.Spec.ResourceAttributes.Resource == "secrets" && strings.HasPrefix(sar.Spec.ResourceAttributes.Name, "demo") {
+		if sar.Spec.ResourceAttributes.Resource == "secrets" && strings.HasPrefix(sar.Spec.ResourceAttributes.Name, "demo") {
 			print = true
 			log.Printf("Request body : %s\n", rawContent)
 		}

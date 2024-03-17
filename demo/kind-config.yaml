@@ -8,7 +8,7 @@ kubeadmConfigPatches:
       name: config
     apiServer:
       extraArgs:
-        authorization-mode: "RBAC,Webhook"
+        authorization-mode: "Node,RBAC,Webhook"
         authorization-webhook-version: "v1"
         authorization-webhook-config-file: "/files/authorize-webhook-conf.yaml"
         authorization-webhook-cache-authorized-ttl: "120s"

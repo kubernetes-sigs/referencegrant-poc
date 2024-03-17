@@ -1,0 +1,25 @@
+apiVersion: apiserver.config.k8s.io/v1alpha1
+kind: AuthorizationConfiguration
+authorizers:
+  - type: Node
+    name: node
+  - type: RBAC
+    name: rbac
+  - name: referencegrant-poc
+    type: Webhook
+    webhook:
+      unauthorizedTTL: 30s
+      timeout: 3s
+      subjectAccessReviewVersion: v1
+      matchConditionSubjectAccessReviewVersion: v1
+      failurePolicy: Deny
+      connectionInfo:
+        type: KubeConfig
+        kubeConfigFile: "/files/authorize-webhook-conf.yaml"
+      matchConditions:
+      # only send resource requests to the webhook
+      - expression: has(request.resourceAttributes)
+      # # only intercept requests to kube-system
+      # - expression: request.resourceAttributes.namespace == 'kube-system'
+      # don't intercept requests from kube-system service accounts
+      - expression: !('system:serviceaccounts:kube-system' in request.user.groups)

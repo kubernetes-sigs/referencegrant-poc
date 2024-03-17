@@ -109,6 +109,20 @@ func (s *AuthStore) CheckAuthz(sar authorizationv1.SubjectAccessReview) (bool, e
 	return allowed, hasErr
 }
 
+// Graph Lookup is perfomed as follows:
+// 1. Start by attempting to find the subject (subj) in the authorization graph. 
+//    If it's not found, it returns false indicating that the subject doesn't have any grants.
+// 
+// 2. It then looks for the target resource group (trg) within the subject's map in the graph.
+//    If not found, it returns false.
+//
+// 3. Next, it iterates through all the CRPIDs (ClusterReferencePatternIDs) within the target resource group's map.
+//    For each CRPID, it checks if an origin resource ID is provided. 
+//    If not, it iterates through all possible origin resource IDs and checks for grants.
+//
+// 4. If an origin resource ID is provided, it directly looks up grants for that specific origin resource ID.
+// 5. If a matching grant is found for the given purpose and verb, it returns true.
+// 6. If no matching grants are found, it continues the iteration. If it exhausts all possibilities, it returns false.
 func (s *AuthStore) lookup(subj subject, trg targetResourceGroup, orig originResourceID, nn targetNamespacedName, p purpose, v verb) (bool, error) {
 	// if verbs, ok := s.graph[targetResource]; ok {
 	// 	if allowed, ok := verbs[verb]; ok {

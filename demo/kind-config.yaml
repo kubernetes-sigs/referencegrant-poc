@@ -8,11 +8,11 @@ kubeadmConfigPatches:
       name: config
     apiServer:
       extraArgs:
-        authorization-mode: "RBAC,Webhook"
+        authorization-mode: "Webhook,Node,RBAC"
         authorization-webhook-version: "v1"
         authorization-webhook-config-file: "/files/authorize-webhook-conf.yaml"
-        authorization-webhook-cache-authorized-ttl: "120s"
-        authorization-webhook-cache-unauthorized-ttl: "30s"
+        authorization-webhook-cache-authorized-ttl: "5s"
+        authorization-webhook-cache-unauthorized-ttl: "5s"
       extraVolumes:
       - name: api-server-basic-auth-files
         hostPath: "/files"
@@ -22,5 +22,5 @@ nodes:
 - role: control-plane
   # Make sure you set the correct hostPath
   extraMounts:
-  - hostPath: demo/files
+  - hostPath: <referencegrant-poc-repo-path>/demo/files
     containerPath: /files

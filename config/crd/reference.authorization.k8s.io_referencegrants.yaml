@@ -78,7 +78,6 @@ spec:
                 description: Resource is the resource of the referents.
                 type: string
             required:
-            - group
             - names
             - resource
             type: object

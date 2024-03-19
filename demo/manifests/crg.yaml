@@ -1,0 +1,15 @@
+kind: ClusterReferenceGrant
+apiVersion: reference.authorization.k8s.io/v1alpha1
+metadata:
+  name: gateways
+from:
+  group: gateway.networking.k8s.io
+  resource: gateways
+versions:
+  - version: v1
+    references:
+      - path: "$.spec.listeners[*].tls.certificateRefs[*]"
+        to:
+          group: ""
+          resource: secrets
+        for: tls-serving

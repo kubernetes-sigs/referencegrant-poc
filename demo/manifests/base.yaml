@@ -1,0 +1,22 @@
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: demo-controller
+  namespace: demo
+---
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: demo-tls-secret
+  namespace: demo
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: demo-tls-secret-default
+  namespace: default
+type: kubernetes.io/tls
+

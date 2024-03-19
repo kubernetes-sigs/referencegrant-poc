@@ -1,0 +1,15 @@
+kind: ReferenceGrant
+apiVersion: reference.authorization.k8s.io/v1alpha1
+metadata:
+  name: demo-gateways
+  namespace: default
+from:
+  group: gateway.networking.k8s.io
+  resource: gateways
+  namespace: demo
+to:
+  group: ""
+  resource: secrets
+  names:
+  - demo-tls-secret-default
+for: tls-serving

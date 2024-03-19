@@ -3,10 +3,8 @@ kind: Config
 clusters:
   - name: authorize-service
     cluster:
-      # this CA should be mounted on the api_server
       certificate-authority: /files/ca.crt
-      # Replace this with authorizer address and endpoint
-      server: https://192.168.8.5:8443/v0/authorize
+      server: http://192.168.5.46:8081/authorize
 
 users:
   - name: authorize-api-server

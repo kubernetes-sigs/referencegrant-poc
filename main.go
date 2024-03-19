@@ -17,21 +17,51 @@ limitations under the License.
 package main
 
 import (
+	"fmt"
 	"net/http"
+	"os"
+	"time"
 
 	"sigs.k8s.io/referencegrant-poc/cmd/controller"
-	"sigs.k8s.io/referencegrant-poc/cmd/store"
 	"sigs.k8s.io/referencegrant-poc/pkg/handlers"
+	"sigs.k8s.io/referencegrant-poc/pkg/store"
 )
 
-func main() {
-	authStore := store.NewStore()
+func waitForFile(filePath string) {
+	for {
+		_, err := os.Stat(filePath)
+		if err == nil {
+			fmt.Println("file exists")
+			break
+		} else if os.IsNotExist(err) {
+			// File doesn't exist yet, wait for a while before checking again
+			time.Sleep(3 * time.Second)
+		} else {
+			// Some other error occurred, print and exit
+			fmt.Println("Error:", err)
+			return
+		}
+	}
+}
 
-	ctrl := controller.NewController(authStore)
+func main() {
+	authStore := store.NewAuthStore()
+
+	http.HandleFunc("/health", handlers.HandleHealthCheck)
+	http.HandleFunc("/authorize", handlers.AuthzHandler(authStore))
+	go func() {
+		fmt.Println("Starting server on port 8081...")
+		if err := http.ListenAndServe(":8081", nil); err != nil {
+			fmt.Printf("Failed to start server: %v\n", err)
+		}
+	}()
+
+	waitForFile(os.Getenv("KUBECONFIG"))
+
+	controller.NewController(authStore)
 
 	// ctx, cancel := context.WithCancel(context.Background())
 	// defer cancel()
 	// go ctrl.Start(ctx)
 
-	http.HandleFunc("/authorize", handlers.AuthzHandler(authStore))
 }
